@@ -65,6 +65,11 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
 .exo input::placeholder{color:#5a616b;font-weight:400}
 .exo .pr{font-size:11px;color:var(--green);margin-top:5px;font-weight:600;display:none}
 .exo .pr.show{display:block}
+.set-row{display:flex;gap:7px;align-items:center;margin-top:7px}
+.set-row .set-lbl{flex-shrink:0;width:30px;font-family:'Oswald';font-size:13px;font-weight:600;color:var(--txt2)}
+.set-row input{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px 6px;color:var(--txt);font-size:15px;text-align:center;font-family:'Barlow';font-weight:600;min-width:0}
+.set-row input:focus{outline:none;border-color:var(--accent2)}
+.set-row input::placeholder{color:#5a616b;font-weight:400}
 
 /* Buttons */
 .btn{display:block;width:100%;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:14px;font-family:'Oswald';font-size:15px;font-weight:600;text-transform:uppercase;letter-spacing:1px;cursor:pointer;margin-top:6px}
@@ -149,6 +154,18 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
 #scanBox{width:100%;border-radius:12px;overflow:hidden;background:#000;margin-top:10px;display:none}
 #scanVideo{width:100%;display:block}
 .scan-hint{text-align:center;color:var(--txt2);font-size:12px;margin-top:8px}
+
+/* Date nav séance */
+.date-nav{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dnav-btn{flex-shrink:0;width:44px;height:44px;border-radius:11px;background:var(--bg3);border:1px solid var(--line);color:var(--txt);font-size:26px;font-family:'Oswald';cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.dnav-btn:active{background:var(--accent);color:#fff}
+.dnav-center{flex:1;text-align:center;cursor:pointer}
+.dnav-date{font-family:'Oswald';font-size:17px;font-weight:600;text-transform:capitalize}
+.dnav-today{font-size:11px;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;min-height:13px}
+.seance-status{margin-top:10px;font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;display:inline-block}
+.seance-status.done{background:rgba(63,185,80,.15);color:var(--green)}
+.seance-status.future{background:rgba(74,158,218,.15);color:var(--blue)}
+.seance-status.todo{background:rgba(240,168,48,.15);color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -196,9 +213,18 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
 <!-- ===== SEANCE ===== -->
 <div class="view" id="v-seance">
   <div class="card">
-    <span class="tag" id="sDayTag"></span>
+    <div class="date-nav">
+      <button class="dnav-btn" onclick="shiftDay(-1)">‹</button>
+      <div class="dnav-center" onclick="goToday()">
+        <div class="dnav-date" id="sDateLabel">—</div>
+        <div class="dnav-today" id="sTodayHint"></div>
+      </div>
+      <button class="dnav-btn" onclick="shiftDay(1)">›</button>
+    </div>
+    <span class="tag" id="sDayTag" style="margin-top:10px"></span>
     <h2 id="sName">—</h2>
     <p class="note" id="sIntensity"></p>
+    <div class="seance-status" id="sStatus"></div>
   </div>
   <div id="sList"></div>
   <button class="btn green" onclick="saveSeance()">Valider la séance</button>
@@ -211,12 +237,22 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
 <div class="view" id="v-timer">
   <div class="card">
     <h2>Timers</h2>
-    <p class="note">EMOM, rounds de combat et repos.</p>
+    <p class="note">EMOM, rounds de combat, repos, ou réglage libre.</p>
     <div class="pills" style="margin-top:12px">
       <div class="pill on" onclick="setTimerMode('emom',this)">EMOM 12'</div>
       <div class="pill" onclick="setTimerMode('combat',this)">Combat 3×3'</div>
       <div class="pill" onclick="setTimerMode('rest',this)">Repos</div>
+      <div class="pill" onclick="setTimerMode('custom',this)">Libre</div>
     </div>
+  </div>
+  <div class="card" id="customConfig" style="display:none">
+    <h3 style="font-size:13px;color:var(--accent2);margin-bottom:8px">RÉGLAGE LIBRE</h3>
+    <div style="display:flex;gap:6px">
+      <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Travail (sec)</label><input type="number" class="mini-input" id="cWork" value="180"></div>
+      <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Repos (sec)</label><input type="number" class="mini-input" id="cRest" value="60"></div>
+      <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Rounds</label><input type="number" class="mini-input" id="cRounds" value="3"></div>
+    </div>
+    <button class="btn ghost sm" onclick="applyCustom()" style="margin-top:10px">Appliquer le réglage</button>
   </div>
   <div class="card">
     <div class="timer-phase" id="tPhase">Prêt</div>
@@ -314,9 +350,15 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
 
   <div class="card">
     <button class="btn" onclick="startScan()">📷 Scanner un produit</button>
-    <div id="scanBox"><video id="scanVideo" playsinline></video></div>
+    <div id="scanBox"><video id="scanVideo" playsinline muted autoplay></video></div>
     <div class="scan-hint" id="scanHint"></div>
     <button class="btn ghost sm" id="scanStop" onclick="stopScan()" style="display:none;margin-top:8px">Arrêter le scan</button>
+    <div class="divider"></div>
+    <h3 style="font-size:13px;color:var(--accent2);margin-bottom:8px">CODE-BARRES À LA MAIN</h3>
+    <div style="display:flex;gap:6px">
+      <input type="number" class="mini-input" id="manualCode" placeholder="ex: 3017620422003" style="margin:0">
+      <button class="btn ghost sm" onclick="lookupProduct(document.getElementById('manualCode').value)" style="margin:0;width:auto;padding:11px 16px">OK</button>
+    </div>
     <div class="divider"></div>
     <h3 style="font-size:13px;color:var(--accent2);margin-bottom:8px">SAISIE MANUELLE</h3>
     <input type="text" class="mini-input" id="mfName" placeholder="Nom de l'aliment">
@@ -337,9 +379,18 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
     <div id="foodLog"></div>
   </div>
 
-  <div class="section-title">Mes besoins (calcul auto)</div>
+  <div class="section-title">Mes besoins</div>
   <div class="card">
-    <div style="display:flex;gap:6px">
+    <p class="note" style="margin-top:0">Deux options : calcul automatique, ou tu rentres tes propres valeurs.</p>
+    <div class="pills" style="margin-top:10px">
+      <div class="pill on" onclick="setNeedMode('auto',this)">Calcul auto</div>
+      <div class="pill" onclick="setNeedMode('manual',this)">Mes valeurs</div>
+    </div>
+  </div>
+
+  <div class="card" id="needAuto">
+    <p class="note" style="margin-top:0;font-size:11px">Formule Mifflin-St Jeor (référence scientifique actuelle) : BMR = 10×poids + 6,25×taille − 5×âge + 5. Multiplié par ton activité = dépense totale (TDEE). Ajusté −400 kcal (sèche) ou +300 (prise). Macros : 2g protéines/kg, 1g lipides/kg, reste en glucides.</p>
+    <div style="display:flex;gap:6px;margin-top:10px">
       <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Poids (kg)</label><input type="number" class="mini-input" id="bwWeight" placeholder="75"></div>
       <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Taille (cm)</label><input type="number" class="mini-input" id="bwHeight" value="176"></div>
       <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Âge</label><input type="number" class="mini-input" id="bwAge" value="23"></div>
@@ -358,6 +409,18 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
     </div>
     <button class="btn green sm" onclick="calcNeeds()" style="margin-top:12px">Calculer mes besoins</button>
     <div class="note" id="needsResult" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card" id="needManual" style="display:none">
+    <p class="note" style="margin-top:0">Rentre directement tes cibles (calculées toi-même ou données par un coach).</p>
+    <label class="note" style="font-weight:600;color:var(--txt);margin-top:8px;display:block">Calories cibles</label>
+    <input type="number" class="mini-input" id="mnKcal" placeholder="ex: 2800">
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Prot (g)</label><input type="number" class="mini-input" id="mnProt" placeholder="150"></div>
+      <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Gluc (g)</label><input type="number" class="mini-input" id="mnCarb" placeholder="300"></div>
+      <div style="flex:1"><label class="note" style="font-weight:600;color:var(--txt)">Lip (g)</label><input type="number" class="mini-input" id="mnFat" placeholder="75"></div>
+    </div>
+    <button class="btn green sm" onclick="saveManualNeeds()" style="margin-top:12px">Enregistrer mes cibles</button>
   </div>
 </div>
 
@@ -530,66 +593,136 @@ function setSev(){DB.set('sevDate',document.getElementById('sevDate').value);ren
 
 // ============ SEANCE ============
 let curDay=new Date().getDay();
+let selDate=new Date();
+function dKey(d){return d.toISOString().slice(0,10)}
+function shiftDay(n){selDate.setDate(selDate.getDate()+n);renderSeance()}
+function goToday(){selDate=new Date();renderSeance()}
+// déduit le nombre de séries depuis le scheme (ex "5 × 5", "4 × max", "3 × 40m")
+function nbSets(scheme){const m=(scheme||'').match(/^(\d+)\s*[×x]/);return m?Math.min(8,parseInt(m[1])):3}
 function renderSeance(){
-  curDay=new Date().getDay();const p=PROG[curDay];
-  document.getElementById('sDayTag').textContent=DAYNAMES[curDay];
+  const key=dKey(selDate);
+  const dow=selDate.getDay();curDay=dow;
+  const p=PROG[dow];const todayK=todayKey();
+  document.getElementById('sDateLabel').textContent=selDate.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  let hint='';
+  if(key===todayK)hint="Aujourd'hui";
+  else if(key<todayK)hint="◂ passé · toucher pour aujourd'hui";
+  else hint="futur ▸ · toucher pour aujourd'hui";
+  document.getElementById('sTodayHint').textContent=hint;
+  document.getElementById('sDayTag').textContent=DAYNAMES[dow];
   document.getElementById('sName').textContent=p.n;
   document.getElementById('sIntensity').textContent=p.d;
-  const saved=DB.get('seance_'+todayKey(),{});
+  const saved=DB.get('seance_'+key,{});
+  const isDone=Object.keys(saved).length>0;
+  const st=document.getElementById('sStatus');
+  if(isDone){st.className='seance-status done';st.textContent='✓ Séance enregistrée'}
+  else if(key<todayK){st.className='seance-status todo';st.textContent='Non remplie ce jour-là'}
+  else if(key>todayK){st.className='seance-status future';st.textContent='À venir · prépare tes charges'}
+  else{st.className='seance-status todo';st.textContent='À faire aujourd\'hui'}
   let html='<div class="card">';
   p.exos.forEach((e,i)=>{
     const sv=saved[i]||{};
     if(e.t==='note'){
       html+=`<div class="exo"><div class="top"><span class="name">${e.name}</span><span class="scheme">${e.scheme}</span></div></div>`;
     }else if(e.t==='min'){
-      html+=`<div class="exo"><div class="top"><span class="name">${e.name}</span><span class="scheme">${e.scheme}</span></div><div class="inputs"><input type="number" placeholder="durée min" data-i="${i}" data-f="dur" value="${sv.dur||''}"></div></div>`;
+      html+=`<div class="exo"><div class="top"><span class="name">${e.name}</span><span class="scheme">${e.scheme}</span></div><div class="inputs"><input type="number" placeholder="durée min" data-i="${i}" data-s="0" data-f="dur" value="${(sv.sets&&sv.sets[0]&&sv.sets[0].dur)||''}"></div></div>`;
     }else{
-      const ph2=e.t==='kg'?'charge kg':(e.t==='sec'?'sec':'reps');
-      html+=`<div class="exo"><div class="top"><span class="name">${e.name}</span><span class="scheme">${e.scheme}</span></div><div class="inputs">
-        <input type="number" placeholder="${ph2}" data-i="${i}" data-f="load" value="${sv.load||''}">
-        <input type="number" placeholder="reps" data-i="${i}" data-f="reps" value="${sv.reps||''}">
-        <input type="number" placeholder="RIR" data-i="${i}" data-f="rir" value="${sv.rir||''}">
-      </div><div class="pr" id="pr-${i}"></div></div>`;
+      const ph2=e.t==='kg'?'kg':(e.t==='sec'?'sec':'reps');
+      const sets=nbSets(e.scheme);
+      const last=lastPerf(e.name,key);
+      html+=`<div class="exo"><div class="top"><span class="name">${e.name}</span><span class="scheme">${e.scheme}</span></div>`;
+      for(let s=0;s<sets;s++){
+        const ss=(sv.sets&&sv.sets[s])||{};
+        html+=`<div class="set-row"><span class="set-lbl">S${s+1}</span>
+          <input type="number" placeholder="${ph2}" data-i="${i}" data-s="${s}" data-f="load" value="${ss.load||''}">
+          <input type="number" placeholder="reps" data-i="${i}" data-s="${s}" data-f="reps" value="${ss.reps||''}">
+          <input type="number" placeholder="RIR" data-i="${i}" data-s="${s}" data-f="rir" value="${ss.rir||''}"></div>`;
+      }
+      if(last)html+=`<div class="pr show">Dernière fois : ${last}</div>`;
+      html+=`</div>`;
     }
   });
   html+='</div>';
   document.getElementById('sList').innerHTML=html;
 }
+// dernière perf (meilleure série en charge) d'un exo avant une date
+function lastPerf(name,beforeKey){
+  let bestKey='',bestSet=null;
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(!k.startsWith('forge_seance_'))continue;
+    const dateK=k.replace('forge_seance_','');
+    if(dateK>=beforeKey)continue;
+    const dow=new Date(dateK+'T12:00').getDay();
+    const exos=(PROG[dow]&&PROG[dow].exos)||[];
+    const data=DB.get('seance_'+dateK,{});
+    exos.forEach((e,idx)=>{
+      if(e.name===name&&data[idx]&&data[idx].sets){
+        const top=data[idx].sets.filter(x=>x&&x.load).sort((a,b)=>parseFloat(b.load)-parseFloat(a.load))[0];
+        if(top&&(!bestKey||dateK>bestKey)){bestKey=dateK;bestSet=top}
+      }
+    });
+  }
+  if(!bestSet)return null;
+  let s=bestSet.load+' kg';if(bestSet.reps)s+=' × '+bestSet.reps;if(bestSet.rir)s+=' (RIR '+bestSet.rir+')';
+  const d=new Date(bestKey+'T12:00');
+  return s+' · '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+}
 function saveSeance(){
-  const p=PROG[curDay];const data={};
+  const key=dKey(selDate);
+  const p=PROG[selDate.getDay()];const data={};
   document.querySelectorAll('#sList input').forEach(inp=>{
-    const i=inp.dataset.i,f=inp.dataset.f;if(!data[i])data[i]={};if(inp.value)data[i][f]=inp.value;
+    const i=inp.dataset.i,s=+inp.dataset.s,f=inp.dataset.f;
+    if(!data[i])data[i]={sets:[]};
+    if(!data[i].sets[s])data[i].sets[s]={};
+    if(inp.value)data[i].sets[s][f]=inp.value;
   });
-  DB.set('seance_'+todayKey(),data);
-  // sessions count + PR
-  const sessions=DB.get('sessions',{});sessions[todayKey()]=p.n;DB.set('sessions',sessions);
+  // nettoyer exos vides
+  Object.keys(data).forEach(i=>{
+    const hasData=data[i].sets.some(st=>st&&Object.keys(st).length>0);
+    if(!hasData)delete data[i];
+  });
+  DB.set('seance_'+key,data);
+  const sessions=DB.get('sessions',{});
+  if(Object.keys(data).length>0)sessions[key]=p.n;else delete sessions[key];
+  DB.set('sessions',sessions);
+  // PR : meilleure charge sur toutes les séries
   const prs=DB.get('prs',{});
   p.exos.forEach((e,i)=>{
-    if(data[i]&&data[i].load){
-      const load=parseFloat(data[i].load);
-      if(PRTARGETS[e.name]&&(!prs[e.name]||load>prs[e.name])){prs[e.name]=load}
+    if(data[i]&&data[i].sets){
+      data[i].sets.forEach(st=>{
+        if(st&&st.load){const load=parseFloat(st.load);if(PRTARGETS[e.name]&&(!prs[e.name]||load>prs[e.name]))prs[e.name]=load}
+      });
     }
   });
   DB.set('prs',prs);
-  toast('Séance validée ✓');
+  toast('Séance enregistrée ✓');renderSeance();
 }
 
 // ============ TIMER ============
 let tMode='emom',tInt=null,tRun=false,tState={};
+let customCfg={work:180,rest:60,rounds:3};
 const TGUIDES={
   emom:`<h2>EMOM 12 minutes</h2><p class="note">3 tours de 4 min. Une tâche par minute, le reste = repos.<br><br><b>Min 1</b> 10 burpees<br><b>Min 2</b> 15 squats sautés<br><b>Min 3</b> 10 pompes claquées<br><b>Min 4</b> 20 mountain climbers</p>`,
   combat:`<h2>Combat 3 × 3 min</h2><p class="note">3 rounds de 3 min, 1 min repos. Rotation libre, reviens au shadow boxing entre les exos durs.<br><br><b>Round 1</b> trouve le rythme<br><b>Round 2</b> pousse fort<br><b>Round 3</b> vide tout<br><br>Alterne : shadow boxing → sprawls → squats sautés → pompes explosives → burpees → mountain climbers.</p>`,
-  rest:`<h2>Repos entre séries</h2><p class="note">Force lourde : 3 min. Volume : 90 sec. Conditioning : 60 sec.</p>`
+  rest:`<h2>Repos entre séries</h2><p class="note">Force lourde : 3 min. Volume : 90 sec. Conditioning : 60 sec.</p>`,
+  custom:`<h2>Réglage libre</h2><p class="note">Configure travail / repos / nombre de rounds en haut, applique, puis démarre. Bip à chaque transition.</p>`
 };
 function setTimerMode(m,el){
   tMode=m;document.querySelectorAll('#v-timer .pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');
+  document.getElementById('customConfig').style.display=(m==='custom')?'block':'none';
   resetTimer();document.getElementById('tGuide').innerHTML=TGUIDES[m];
+}
+function applyCustom(){
+  customCfg={work:Math.max(5,+document.getElementById('cWork').value||180),rest:Math.max(0,+document.getElementById('cRest').value||60),rounds:Math.max(1,+document.getElementById('cRounds').value||3)};
+  resetTimer();toast('Réglage appliqué ✓');
 }
 function fmt(s){const m=Math.floor(s/60),x=s%60;return String(m).padStart(2,'0')+":"+String(x).padStart(2,'0')}
 function resetTimer(){
   clearInterval(tInt);tRun=false;document.getElementById('tBtn').textContent='Démarrer';
   if(tMode==='emom'){tState={total:720,el:0};document.getElementById('tDisp').textContent='12:00';document.getElementById('tPhase').textContent='EMOM';document.getElementById('tSub').textContent='12 minutes'}
   else if(tMode==='combat'){tState={phase:'round',round:1,rem:180};document.getElementById('tDisp').textContent='03:00';document.getElementById('tPhase').textContent='Round 1';document.getElementById('tSub').textContent='Combat'}
+  else if(tMode==='custom'){tState={phase:'work',round:1,rem:customCfg.work};document.getElementById('tDisp').textContent=fmt(customCfg.work);document.getElementById('tPhase').textContent='Travail';document.getElementById('tSub').textContent='Round 1/'+customCfg.rounds}
   else{tState={rem:180};document.getElementById('tDisp').textContent='03:00';document.getElementById('tPhase').textContent='Repos';document.getElementById('tSub').textContent='3 min (ajuste)'}
 }
 function toggleTimer(){
@@ -618,6 +751,19 @@ function tick(){
         tState.phase='rest';tState.rem=60;document.getElementById('tPhase').textContent='Repos';document.getElementById('tSub').textContent='1 min'
       }else{
         tState.phase='round';tState.round++;tState.rem=180;document.getElementById('tPhase').textContent='Round '+tState.round;document.getElementById('tSub').textContent='Combat'
+      }
+    }
+  }else if(tMode==='custom'){
+    tState.rem--;
+    document.getElementById('tDisp').textContent=fmt(Math.max(0,tState.rem));
+    if(tState.rem<=0){
+      beep();
+      if(tState.phase==='work'){
+        if(tState.round>=customCfg.rounds){clearInterval(tInt);tRun=false;document.getElementById('tPhase').textContent='Terminé ✓';document.getElementById('tBtn').textContent='Démarrer';return}
+        if(customCfg.rest>0){tState.phase='rest';tState.rem=customCfg.rest;document.getElementById('tPhase').textContent='Repos';document.getElementById('tSub').textContent='Round '+tState.round+'/'+customCfg.rounds}
+        else{tState.round++;tState.rem=customCfg.work;document.getElementById('tPhase').textContent='Travail';document.getElementById('tSub').textContent='Round '+tState.round+'/'+customCfg.rounds}
+      }else{
+        tState.phase='work';tState.round++;tState.rem=customCfg.work;document.getElementById('tPhase').textContent='Travail';document.getElementById('tSub').textContent='Round '+tState.round+'/'+customCfg.rounds
       }
     }
   }else{
@@ -804,6 +950,17 @@ function calcNeeds(){
   document.getElementById('needsResult').innerHTML=`Cible : <b style="color:var(--green)">${tdee} kcal</b> · ${prot}g prot · ${carb}g gluc · ${fat}g lip`;
   renderNut();toast('Besoins calculés ✓');
 }
+function setNeedMode(m,el){
+  el.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');
+  document.getElementById('needAuto').style.display=(m==='auto')?'block':'none';
+  document.getElementById('needManual').style.display=(m==='manual')?'block':'none';
+}
+function saveManualNeeds(){
+  const kcal=+document.getElementById('mnKcal').value,prot=+document.getElementById('mnProt').value||0,carb=+document.getElementById('mnCarb').value||0,fat=+document.getElementById('mnFat').value||0;
+  if(!kcal){toast('Calories requises');return}
+  DB.set('needs',{kcal,prot,carb,fat});
+  renderNut();toast('Cibles enregistrées ✓');
+}
 function renderNut(){
   document.getElementById('nDate').textContent=new Date().toLocaleDateString('fr-FR');
   const bw=DB.get('bwInfo',null);
@@ -844,27 +1001,47 @@ function addManual(){
   toast('Ajouté ✓');
 }
 // ----- SCAN -----
-let codeReader=null;
+let codeReader=null,scanStream=null;
 async function startScan(){
-  const box=document.getElementById('scanBox'),hint=document.getElementById('scanHint'),stop=document.getElementById('scanStop');
-  if(typeof ZXing==='undefined'){hint.textContent='Librairie de scan non chargée (besoin internet au 1er lancement).';return}
-  box.style.display='block';stop.style.display='block';hint.textContent='Vise le code-barres…';
+  const box=document.getElementById('scanBox'),hint=document.getElementById('scanHint'),stop=document.getElementById('scanStop'),video=document.getElementById('scanVideo');
+  // diagnostics
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    hint.textContent="Caméra non disponible. L'app doit être ouverte en HTTPS (depuis ton lien GitHub Pages), pas en fichier local.";return;
+  }
+  if(typeof ZXing==='undefined'){
+    hint.textContent="Module de scan pas encore chargé (besoin d'internet au 1er lancement). Tu peux entrer le code-barres à la main ci-dessous.";return;
+  }
+  box.style.display='block';stop.style.display='block';hint.textContent='Ouverture de la caméra…';
   try{
+    // ouvrir explicitement la caméra arrière
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+    video.srcObject=scanStream;
+    await video.play();
+    hint.textContent='Vise le code-barres…';
     codeReader=new ZXing.BrowserMultiFormatReader();
-    const devices=await codeReader.listVideoInputDevices();
-    const backCam=devices.find(d=>/back|arrière|rear|environment/i.test(d.label))||devices[devices.length-1];
-    codeReader.decodeFromVideoDevice(backCam?backCam.deviceId:undefined,'scanVideo',(result,err)=>{
-      if(result){const code=result.getText();stopScan();lookupProduct(code)}
-    });
-  }catch(e){hint.textContent='Caméra inaccessible. Vérifie les autorisations (HTTPS requis).';box.style.display='none';stop.style.display='none'}
+    if(codeReader.decodeFromStream){
+      codeReader.decodeFromStream(scanStream,video,(result,err)=>{if(result){const code=result.getText();stopScan();lookupProduct(code)}});
+    }else{
+      codeReader.decodeFromVideoElement(video,(result,err)=>{if(result){const code=result.getText();stopScan();lookupProduct(code)}});
+    }
+  }catch(e){
+    box.style.display='none';stop.style.display='none';
+    if(e.name==='NotAllowedError')hint.textContent="Autorisation caméra refusée. Active-la dans les réglages du navigateur, puis réessaie.";
+    else if(e.name==='NotFoundError')hint.textContent="Aucune caméra trouvée sur l'appareil.";
+    else hint.textContent="Caméra inaccessible ("+e.name+"). Entre le code-barres à la main ci-dessous.";
+  }
 }
 function stopScan(){
   if(codeReader){try{codeReader.reset()}catch(e){}codeReader=null}
-  const box=document.getElementById('scanBox'),stop=document.getElementById('scanStop');
+  if(scanStream){try{scanStream.getTracks().forEach(t=>t.stop())}catch(e){}scanStream=null}
+  const box=document.getElementById('scanBox'),stop=document.getElementById('scanStop'),video=document.getElementById('scanVideo');
+  if(video)video.srcObject=null;
   if(box)box.style.display='none';if(stop)stop.style.display='none';
 }
 async function lookupProduct(code){
+  if(!code){toast('Entre un code-barres');return}
   const hint=document.getElementById('scanHint');hint.textContent='Recherche du produit '+code+'…';
+  go('nut');
   try{
     const res=await fetch('https://world.openfoodfacts.org/api/v2/product/'+code+'.json?fields=product_name,nutriments,brands');
     const data=await res.json();
@@ -880,10 +1057,10 @@ async function lookupProduct(code){
       document.getElementById('mfQty').focus();
       hint.textContent='✓ '+name+' trouvé. Indique la quantité (g) puis ajoute.';
     }else{
-      hint.textContent='Produit non trouvé dans Open Food Facts. Saisie manuelle possible.';
+      hint.textContent='Produit '+code+' non trouvé dans Open Food Facts. Complète à la main ci-dessous.';
       document.getElementById('mfName').value='Produit '+code;
     }
-  }catch(e){hint.textContent='Erreur réseau. Réessaie avec une connexion.'}
+  }catch(e){hint.textContent='Erreur réseau. Réessaie avec une connexion internet.'}
 }
 
 // ============ POIDS & MENSURATIONS ============

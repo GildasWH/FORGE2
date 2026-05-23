@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0d0f12">
 <title>FORGE — Suivi Gildas</title>
-<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+<script>window.__zxingOk=false;</script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js" onload="window.__zxingOk=true" onerror="window.__zxingErr=true"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&display=swap');
 
@@ -70,6 +71,14 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
 .set-row input{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px 6px;color:var(--txt);font-size:15px;text-align:center;font-family:'Barlow';font-weight:600;min-width:0}
 .set-row input:focus{outline:none;border-color:var(--accent2)}
 .set-row input::placeholder{color:#5a616b;font-weight:400}
+.week-strip{display:flex;gap:5px;justify-content:space-between}
+.wday{flex:1;text-align:center;padding:9px 2px;border-radius:9px;background:var(--bg3);border:1px solid var(--line);cursor:pointer}
+.wday .wd{font-family:'Oswald';font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase}
+.wday .wn{font-size:16px;margin-top:3px}
+.wday.done{background:rgba(63,185,80,.18);border-color:var(--green)}
+.wday.done .wn{color:var(--green)}
+.wday.today{border-color:var(--accent2)}
+.wday.miss .wn{color:#5a616b}
 
 /* Buttons */
 .btn{display:block;width:100%;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:14px;font-family:'Oswald';font-size:15px;font-weight:600;text-transform:uppercase;letter-spacing:1px;cursor:pointer;margin-top:6px}
@@ -192,9 +201,26 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
     <button class="btn" onclick="go('seance')">Ouvrir la séance →</button>
   </div>
 
+  <div class="section-title">Ma semaine</div>
+  <div class="card">
+    <div class="week-strip" id="weekStrip"></div>
+  </div>
+
   <div class="section-title">Progression force</div>
   <div class="card">
     <div id="prBars"></div>
+  </div>
+
+  <div class="section-title">Courbe de progression</div>
+  <div class="card">
+    <select class="mini-input" id="progExo" onchange="drawProgChart()" style="margin-top:0"></select>
+    <div class="pills" style="margin-top:8px">
+      <div class="pill on" id="pmCharge" onclick="setProgMetric('charge',this)">Charge max</div>
+      <div class="pill" id="pmVol" onclick="setProgMetric('volume',this)">Volume (tonnage)</div>
+      <div class="pill" id="pmEst" onclick="setProgMetric('e1rm',this)">1RM estimé</div>
+    </div>
+    <canvas class="chart" id="progChart" style="height:190px"></canvas>
+    <div class="note" id="progNote" style="text-align:center"></div>
   </div>
 
   <div class="section-title">Réglages</div>
@@ -457,6 +483,14 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
   </div>
 </div>
 
+<!-- ===== JOURNAL ===== -->
+<div class="view" id="v-journal">
+  <div class="card">
+    <h2>Journal d'entraînement<span class="sub">Toutes tes séances enregistrées, de la plus récente.</span></h2>
+  </div>
+  <div id="journalList"></div>
+</div>
+
 <div class="saved" id="toast">Enregistré ✓</div>
 
 <!-- ===== NAV ===== -->
@@ -474,6 +508,7 @@ h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-s
     <button class="btn ghost sm" onclick="go('sevrage');toggleMore()">✦ Sevrage</button>
     <button class="btn ghost sm" onclick="go('mob');toggleMore()">⟡ Mobilité</button>
     <button class="btn ghost sm" onclick="go('poids');toggleMore()">⚖ Poids & mensurations</button>
+    <button class="btn ghost sm" onclick="go('journal');toggleMore()">📖 Journal séances</button>
     <button class="btn ghost sm" onclick="go('edit');toggleMore()">✎ Éditer programme</button>
   </div>
 </div>
@@ -493,7 +528,8 @@ const DEFAULT_PROG={
     {name:"Curl improvisé",scheme:"3 × 12-15",t:"reps"},
     {name:"Dead bug",scheme:"3 × 10/côté",t:"reps"},
     {name:"Hollow hold",scheme:"3 × 30 sec",t:"sec"},
-    {name:"Footing zone 2",scheme:"30 min",t:"min"}
+    {name:"Footing zone 2",scheme:"30 min",t:"min"},
+    {name:"Routine A (mobilité sciatique)",scheme:"10 min · onglet Mobilité",t:"note"}
   ]},
   2:{n:"Cardio long + souplesse combat",d:"Déplacement · modérée",exos:[
     {name:"Footing zone 2",scheme:"35-45 min",t:"min"},
@@ -503,13 +539,15 @@ const DEFAULT_PROG={
     {name:"Pompes (variantes)",scheme:"4 × 15-25",t:"reps"},
     {name:"Pompes piquées",scheme:"3 × 8-15",t:"reps"},
     {name:"Dips entre chaises",scheme:"3 × max (1-2 RIR)",t:"reps"},
-    {name:"EMOM 12 min",scheme:"timer dédié",t:"note"}
+    {name:"EMOM 12 min",scheme:"timer dédié",t:"note"},
+    {name:"Routine A (mobilité sciatique)",scheme:"10 min · onglet Mobilité",t:"note"}
   ]},
   4:{n:"Force jambes",d:"Salle soir · haute · SDT léger (espacé)",exos:[
     {name:"Back squat",scheme:"5 × 5 lourd",t:"kg"},
     {name:"SDT roumain (léger, souplesse)",scheme:"3 × 8-10 modéré",t:"kg"},
     {name:"Fente marchée ou step-up",scheme:"3 × 10/jambe",t:"kg"},
-    {name:"Farmer walk",scheme:"3 × 40m lourd",t:"kg"}
+    {name:"Farmer walk",scheme:"3 × 40m lourd",t:"kg"},
+    {name:"Routine A (mobilité sciatique)",scheme:"10 min · onglet Mobilité",t:"note"}
   ]},
   5:{n:"Push force lourde",d:"Maison · haute · +cardio PM",exos:[
     {name:"Développé couché",scheme:"5 × 5 lourd",t:"kg"},
@@ -518,7 +556,8 @@ const DEFAULT_PROG={
     {name:"Dips lestés",scheme:"4 × 6-8",t:"kg"},
     {name:"Élévations latérales",scheme:"3 × 10-12",t:"kg"},
     {name:"Extension triceps poulie",scheme:"3 × 8-10",t:"kg"},
-    {name:"Vélo zone 2 (PM)",scheme:"45-60 min",t:"min"}
+    {name:"Vélo zone 2 (PM)",scheme:"45-60 min",t:"min"},
+    {name:"Routine A (mobilité sciatique)",scheme:"10 min · onglet Mobilité",t:"note"}
   ]},
   6:{n:"Pull force lourde",d:"Salle · très haute · SDT lourd · +piscine PM",exos:[
     {name:"Soulevé de terre",scheme:"5 × 5 lourd",t:"kg"},
@@ -528,7 +567,8 @@ const DEFAULT_PROG={
     {name:"Curl barre",scheme:"3 × 8-10",t:"kg"},
     {name:"Face pull",scheme:"3 × 12-15",t:"kg"},
     {name:"Carries suitcase",scheme:"3 × 40m/côté",t:"kg"},
-    {name:"Piscine (PM)",scheme:"45-60 min",t:"min"}
+    {name:"Piscine (PM)",scheme:"45-60 min",t:"min"},
+    {name:"Routine A (mobilité sciatique)",scheme:"10 min · onglet Mobilité",t:"note"}
   ]},
   0:{n:"Volume modéré + mobilité",d:"Allégé après 3 jours lourds · combat optionnel",exos:[
     {name:"SS1 Dips + Tractions",scheme:"3 × 8-10/6-8",t:"reps"},
@@ -558,6 +598,7 @@ function go(v){
   if(v==='edit')renderEdit();
   if(v==='nut')renderNut();
   if(v==='poids')renderPoids();
+  if(v==='journal')renderJournal();
 }
 function toggleMore(){const m=document.getElementById('moreMenu');m.style.display=m.style.display==='none'?'block':'none'}
 function toast(m){const t=document.getElementById('toast');t.textContent=m||'Enregistré ✓';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500)}
@@ -579,6 +620,19 @@ function renderDash(){
   document.getElementById('todayTag').textContent=DAYNAMES[dn];
   document.getElementById('todayName').textContent=p.n;
   document.getElementById('todayDesc').textContent=p.d;
+  // semaine (lun→dim de la semaine courante)
+  const todayK=todayKey();
+  const monday=new Date(d);const off=(d.getDay()+6)%7;monday.setDate(d.getDate()-off);
+  const labels=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  let ws='';
+  for(let i=0;i<7;i++){
+    const dd=new Date(monday);dd.setDate(monday.getDate()+i);const k=dKey(dd);
+    const done=!!sessions[k];const isToday=k===todayK;const past=k<todayK;
+    let cls='wday';if(done)cls+=' done';else if(past)cls+=' miss';if(isToday)cls+=' today';
+    const icon=done?'✓':(past?'·':(isToday?'●':'·'));
+    ws+=`<div class="${cls}" onclick="selDate=new Date('${k}T12:00');go('seance')"><div class="wd">${labels[i]}</div><div class="wn">${icon}</div></div>`;
+  }
+  document.getElementById('weekStrip').innerHTML=ws;
   // PR bars
   const prs=DB.get('prs',{});let html='';
   for(const[ex,tg]of Object.entries(PRTARGETS)){
@@ -587,6 +641,80 @@ function renderDash(){
     html+=`<div class="pbar-row"><div class="l"><span>${ex}</span><span>${cur} / ${tg.t6} ${unit}</span></div><div class="pbar"><i style="width:${Math.max(4,pct)}%"></i></div></div>`;
   }
   document.getElementById('prBars').innerHTML=html;
+  // sélecteur exos pour la courbe
+  fillProgSelect();drawProgChart();
+}
+// liste tous les exos chargés (kg) ayant au moins une donnée enregistrée
+function allTrackedExos(){
+  const set=new Set();
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);if(!k.startsWith('forge_seance_'))continue;
+    const dateK=k.replace('forge_seance_','');const dow=new Date(dateK+'T12:00').getDay();
+    const exos=(PROG[dow]&&PROG[dow].exos)||[];const data=DB.get('seance_'+dateK,{});
+    exos.forEach((e,idx)=>{if(e.t==='kg'&&data[idx]&&data[idx].sets&&data[idx].sets.some(s=>s&&s.load))set.add(e.name)});
+  }
+  return [...set];
+}
+function fillProgSelect(){
+  const sel=document.getElementById('progExo');const exos=allTrackedExos();
+  const cur=sel.value;
+  if(exos.length===0){sel.innerHTML='<option>— aucune donnée encore —</option>';return}
+  sel.innerHTML=exos.map(e=>`<option ${e===cur?'selected':''}>${e}</option>`).join('');
+}
+let progMetric='charge';
+function setProgMetric(m,el){progMetric=m;el.parentElement.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');drawProgChart()}
+function drawProgChart(){
+  const cv=document.getElementById('progChart');const ctx=cv.getContext('2d');
+  const w=cv.width=cv.offsetWidth*2,h=cv.height=380;ctx.clearRect(0,0,w,h);
+  const name=document.getElementById('progExo').value;
+  const note=document.getElementById('progNote');
+  if(!name||name.startsWith('—')){ctx.fillStyle='#9aa0a9';ctx.font='22px Barlow';ctx.textAlign='center';ctx.fillText('Enregistre des séances pour voir tes courbes',w/2,h/2);note.textContent='';return}
+  const pts=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);if(!k.startsWith('forge_seance_'))continue;
+    const dateK=k.replace('forge_seance_','');const dow=new Date(dateK+'T12:00').getDay();
+    const exos=(PROG[dow]&&PROG[dow].exos)||[];const data=DB.get('seance_'+dateK,{});
+    exos.forEach((e,idx)=>{
+      if(e.name===name&&data[idx]&&data[idx].sets){
+        const valid=data[idx].sets.filter(s=>s&&s.load);
+        if(!valid.length)return;
+        let v;
+        if(progMetric==='charge'){v=Math.max(...valid.map(s=>parseFloat(s.load)))}
+        else if(progMetric==='volume'){v=valid.reduce((a,s)=>a+parseFloat(s.load)*(parseFloat(s.reps)||1),0)}
+        else{// 1RM estimé Epley sur la meilleure série
+          v=Math.max(...valid.map(s=>{const l=parseFloat(s.load),r=parseFloat(s.reps)||1;return Math.round(l*(1+r/30))}));
+        }
+        pts.push({d:dateK,v});
+      }
+    });
+  }
+  pts.sort((a,b)=>a.d<b.d?-1:1);
+  const unit=progMetric==='volume'?' kg(vol)':' kg';
+  if(pts.length<2){ctx.fillStyle='#9aa0a9';ctx.font='22px Barlow';ctx.textAlign='center';ctx.fillText('Au moins 2 séances nécessaires',w/2,h/2);note.textContent=pts.length===1?('1 séance : '+pts[0].v+unit):'';return}
+  const vals=pts.map(p=>p.v),min=Math.min(...vals),max=Math.max(...vals),range=(max-min)||1;
+  const pad=54,gw=w-pad*2,gh=h-pad*2-30;
+  // grille + axe Y
+  ctx.strokeStyle='#2a2f37';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=pad+gh*i/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-pad,y);ctx.stroke();
+    ctx.fillStyle='#9aa0a9';ctx.font='17px Barlow';ctx.textAlign='right';ctx.fillText(Math.round(max-range*i/4),pad-8,y+6)}
+  const X=i=>pad+gw*i/(pts.length-1),Y=v=>pad+gh*(1-(v-min)/range);
+  // dégradé sous la courbe
+  const grad=ctx.createLinearGradient(0,pad,0,pad+gh);
+  grad.addColorStop(0,'rgba(232,68,58,.35)');grad.addColorStop(1,'rgba(232,68,58,0)');
+  ctx.beginPath();ctx.moveTo(X(0),Y(pts[0].v));
+  pts.forEach((p,i)=>ctx.lineTo(X(i),Y(p.v)));
+  ctx.lineTo(X(pts.length-1),pad+gh);ctx.lineTo(X(0),pad+gh);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  // ligne
+  ctx.strokeStyle='#e8443a';ctx.lineWidth=4;ctx.beginPath();
+  pts.forEach((p,i)=>{if(i===0)ctx.moveTo(X(i),Y(p.v));else ctx.lineTo(X(i),Y(p.v))});ctx.stroke();
+  // points + dates (premier, dernier, et milieu)
+  ctx.fillStyle='#f0a830';pts.forEach((p,i)=>{ctx.beginPath();ctx.arc(X(i),Y(p.v),5,0,7);ctx.fill()});
+  ctx.fillStyle='#9aa0a9';ctx.font='15px Barlow';ctx.textAlign='center';
+  const showIdx=[0,Math.floor((pts.length-1)/2),pts.length-1];
+  showIdx.forEach(i=>{const d=new Date(pts[i].d+'T12:00');ctx.fillText(d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),X(i),pad+gh+24)});
+  const gain=pts[pts.length-1].v-pts[0].v;
+  const lbl=progMetric==='charge'?'charge max':(progMetric==='volume'?'tonnage':'1RM estimé');
+  note.innerHTML=`${lbl} · de ${pts[0].v} à ${pts[pts.length-1].v}${unit} · <b style="color:${gain>=0?'var(--green)':'var(--accent)'}">${gain>=0?'+':''}${gain}</b> sur ${pts.length} séances`;
 }
 function setStart(){DB.set('startDate',document.getElementById('startDate').value);renderDash();toast()}
 function setSev(){DB.set('sevDate',document.getElementById('sevDate').value);renderDash();toast()}
@@ -1004,31 +1132,53 @@ function addManual(){
 let codeReader=null,scanStream=null;
 async function startScan(){
   const box=document.getElementById('scanBox'),hint=document.getElementById('scanHint'),stop=document.getElementById('scanStop'),video=document.getElementById('scanVideo');
-  // diagnostics
+  // 1. contexte sécurisé requis
+  if(!window.isSecureContext){
+    hint.innerHTML="⚠ La caméra exige une connexion sécurisée (HTTPS). Tu as ouvert l'app en local (file://) ou en http. Ouvre-la depuis ton lien <b>https://…github.io/…</b> et réessaie. En attendant, entre le code-barres à la main ci-dessous.";
+    return;
+  }
+  // 2. API disponible
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    hint.textContent="Caméra non disponible. L'app doit être ouverte en HTTPS (depuis ton lien GitHub Pages), pas en fichier local.";return;
+    hint.textContent="Ce navigateur ne supporte pas l'accès caméra. Essaie Chrome à jour, ou entre le code à la main.";return;
   }
   if(typeof ZXing==='undefined'){
-    hint.textContent="Module de scan pas encore chargé (besoin d'internet au 1er lancement). Tu peux entrer le code-barres à la main ci-dessous.";return;
+    hint.textContent="Module de scan pas chargé (besoin d'internet au 1er lancement). Code à la main possible ci-dessous.";return;
   }
-  box.style.display='block';stop.style.display='block';hint.textContent='Ouverture de la caméra…';
+  box.style.display='block';stop.style.display='block';hint.textContent='Ouverture de la caméra… (autorise si demandé)';
+  // 4. essai en cascade : arrière → n'importe laquelle
+  const tries=[
+    {video:{facingMode:{exact:'environment'}}},
+    {video:{facingMode:'environment'}},
+    {video:true}
+  ];
+  let lastErr=null;
+  for(const constraints of tries){
+    try{
+      scanStream=await navigator.mediaDevices.getUserMedia(constraints);
+      break;
+    }catch(e){lastErr=e}
+  }
+  if(!scanStream){
+    box.style.display='none';stop.style.display='none';
+    const n=lastErr?lastErr.name:'inconnue';
+    if(n==='NotAllowedError')hint.innerHTML="🚫 Autorisation refusée. Touche le cadenas 🔒 près de l'adresse → Caméra → Autoriser, puis recharge. (Si rien n'est demandé, c'est que le site n'est pas en HTTPS.)";
+    else if(n==='NotFoundError'||n==='OverconstrainedError')hint.textContent="Aucune caméra exploitable trouvée. Entre le code à la main.";
+    else if(n==='NotReadableError')hint.textContent="La caméra est déjà utilisée par une autre app. Ferme-la et réessaie.";
+    else hint.textContent="Caméra inaccessible ("+n+"). Entre le code à la main ci-dessous.";
+    return;
+  }
   try{
-    // ouvrir explicitement la caméra arrière
-    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
     video.srcObject=scanStream;
     await video.play();
     hint.textContent='Vise le code-barres…';
     codeReader=new ZXing.BrowserMultiFormatReader();
     if(codeReader.decodeFromStream){
-      codeReader.decodeFromStream(scanStream,video,(result,err)=>{if(result){const code=result.getText();stopScan();lookupProduct(code)}});
+      codeReader.decodeFromStream(scanStream,video,(result)=>{if(result){stopScan();lookupProduct(result.getText())}});
     }else{
-      codeReader.decodeFromVideoElement(video,(result,err)=>{if(result){const code=result.getText();stopScan();lookupProduct(code)}});
+      codeReader.decodeFromVideoElement(video,(result)=>{if(result){stopScan();lookupProduct(result.getText())}});
     }
   }catch(e){
-    box.style.display='none';stop.style.display='none';
-    if(e.name==='NotAllowedError')hint.textContent="Autorisation caméra refusée. Active-la dans les réglages du navigateur, puis réessaie.";
-    else if(e.name==='NotFoundError')hint.textContent="Aucune caméra trouvée sur l'appareil.";
-    else hint.textContent="Caméra inaccessible ("+e.name+"). Entre le code-barres à la main ci-dessous.";
+    stopScan();hint.textContent="Erreur d'affichage vidéo ("+e.name+"). Entre le code à la main.";
   }
 }
 function stopScan(){
@@ -1080,19 +1230,62 @@ function savePoids(){
 }
 function drawPoidsChart(){
   const cv=document.getElementById('poidsChart');const ctx=cv.getContext('2d');
-  const w=cv.width=cv.offsetWidth*2,h=cv.height=300;ctx.clearRect(0,0,w,h);
+  const w=cv.width=cv.offsetWidth*2,h=cv.height=340;ctx.clearRect(0,0,w,h);
   const all=DB.get('mensur',{});
   const dates=Object.keys(all).sort();
   const pts=dates.map(d=>({d,v:parseFloat(all[d][pMetric])})).filter(p=>!isNaN(p.v));
-  if(pts.length<2){ctx.fillStyle='#9aa0a9';ctx.font='24px Barlow';ctx.textAlign='center';ctx.fillText('Ajoute au moins 2 mesures',w/2,h/2);return}
+  if(pts.length<2){ctx.fillStyle='#9aa0a9';ctx.font='22px Barlow';ctx.textAlign='center';ctx.fillText('Ajoute au moins 2 mesures',w/2,h/2);return}
   const vals=pts.map(p=>p.v),min=Math.min(...vals),max=Math.max(...vals),range=(max-min)||1;
-  const pad=50,gw=w-pad*2,gh=h-pad*2;
+  const pad=54,gw=w-pad*2,gh=h-pad*2-30;
   ctx.strokeStyle='#2a2f37';ctx.lineWidth=1;
   for(let i=0;i<=4;i++){const y=pad+gh*i/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-pad,y);ctx.stroke();
-    ctx.fillStyle='#9aa0a9';ctx.font='18px Barlow';ctx.textAlign='right';ctx.fillText((max-range*i/4).toFixed(1),pad-8,y+6)}
-  ctx.strokeStyle='#e8443a';ctx.lineWidth=4;ctx.beginPath();
-  pts.forEach((p,i)=>{const x=pad+gw*i/(pts.length-1),y=pad+gh*(1-(p.v-min)/range);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();
-  ctx.fillStyle='#f0a830';pts.forEach((p,i)=>{const x=pad+gw*i/(pts.length-1),y=pad+gh*(1-(p.v-min)/range);ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.fill()});
+    ctx.fillStyle='#9aa0a9';ctx.font='17px Barlow';ctx.textAlign='right';ctx.fillText((max-range*i/4).toFixed(1),pad-8,y+6)}
+  const X=i=>pad+gw*i/(pts.length-1),Y=v=>pad+gh*(1-(v-min)/range);
+  const grad=ctx.createLinearGradient(0,pad,0,pad+gh);
+  grad.addColorStop(0,'rgba(74,158,218,.35)');grad.addColorStop(1,'rgba(74,158,218,0)');
+  ctx.beginPath();ctx.moveTo(X(0),Y(pts[0].v));pts.forEach((p,i)=>ctx.lineTo(X(i),Y(p.v)));
+  ctx.lineTo(X(pts.length-1),pad+gh);ctx.lineTo(X(0),pad+gh);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.strokeStyle='#4a9eda';ctx.lineWidth=4;ctx.beginPath();
+  pts.forEach((p,i)=>{if(i===0)ctx.moveTo(X(i),Y(p.v));else ctx.lineTo(X(i),Y(p.v))});ctx.stroke();
+  ctx.fillStyle='#f0a830';pts.forEach((p,i)=>{ctx.beginPath();ctx.arc(X(i),Y(p.v),5,0,7);ctx.fill()});
+  ctx.fillStyle='#9aa0a9';ctx.font='15px Barlow';ctx.textAlign='center';
+  [0,Math.floor((pts.length-1)/2),pts.length-1].forEach(i=>{const d=new Date(pts[i].d+'T12:00');ctx.fillText(d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}),X(i),pad+gh+24)});
+}
+
+// ============ JOURNAL ============
+function renderJournal(){
+  const entries=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);if(!k.startsWith('forge_seance_'))continue;
+    const dateK=k.replace('forge_seance_','');
+    const data=DB.get('seance_'+dateK,{});
+    if(Object.keys(data).length===0)continue;
+    const dow=new Date(dateK+'T12:00').getDay();
+    const prog=PROG[dow]||{n:'Séance',exos:[]};
+    entries.push({dateK,dow,prog,data});
+  }
+  entries.sort((a,b)=>a.dateK<b.dateK?1:-1);
+  if(entries.length===0){document.getElementById('journalList').innerHTML='<div class="card"><div class="chart-empty">Aucune séance enregistrée pour l\'instant. Remplis et valide une séance, elle apparaîtra ici.</div></div>';return}
+  let html='';
+  entries.forEach(en=>{
+    const d=new Date(en.dateK+'T12:00');
+    const dateLabel=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    html+=`<div class="card"><span class="tag">${dateLabel}</span><h2 style="font-size:15px">${en.prog.n}</h2>`;
+    en.prog.exos.forEach((e,idx)=>{
+      const ex=en.data[idx];if(!ex||!ex.sets)return;
+      const sets=ex.sets.filter(s=>s&&(s.load||s.reps||s.dur));
+      if(sets.length===0)return;
+      let detail=sets.map(s=>{
+        if(s.dur)return s.dur+' min';
+        let t=(s.load?s.load+'kg':'')+(s.reps?(s.load?'×':'')+s.reps:'');
+        if(s.rir)t+=' (RIR'+s.rir+')';
+        return t||'—';
+      }).join(' · ');
+      html+=`<div class="exo" style="padding:8px 0"><div class="top"><span class="name" style="font-size:14px">${e.name}</span></div><div class="note" style="margin-top:3px">${detail}</div></div>`;
+    });
+    html+=`<button class="btn ghost sm" onclick="selDate=new Date('${en.dateK}T12:00');go('seance')" style="margin-top:8px">Voir / modifier</button></div>`;
+  });
+  document.getElementById('journalList').innerHTML=html;
 }
 
 // ============ INIT ============
